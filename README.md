@@ -3,7 +3,6 @@
 
 Here is a sample Git readme for the Prometheus-Alertmanager-Grafana stack:
 
-# Prometheus-Alertmanager-Grafana
 
 This project sets up a monitoring and alerting stack using [Prometheus](https://prometheus.io), [Alertmanager](https://prometheus.io/docs/alerting/alertmanager/), and [Grafana](https://grafana.com/) for visualization.
 
