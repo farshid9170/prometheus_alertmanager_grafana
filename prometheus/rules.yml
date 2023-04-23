@@ -1,0 +1,544 @@
+groups:
+
+########################################################################################################
+- name: AllInstances
+  rules:
+  - alert: InstanceDown
+    # Condition for alerting
+    expr: up == 0
+    for: 1m
+    # Annotation - additional informational labels to store more information
+    annotations:
+      title: 'Instance {{ $labels.instance }} down'
+      description: '{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute.'
+    # Labels - additional labels to be attached to the alert
+    labels:
+      severity: 'critical'
+
+
+
+
+- name: node_exporter_alerts
+  rules:
+  # Node DOWN
+  - alert: Node down
+    expr: up{job="monitoring-pi"} == 0
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      title: Node {{ $labels.instance }} is down
+      description: Failed to scrape {{ $labels.job }} on {{ $labels.instance }} for more than 2 minutes. Node seems down.
+
+
+  # Node memory is filling up (< 10% left)
+  - alert: HostOutOfMemory
+    expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host out of memory (instance {{ $labels.instance }})"
+      description: "Node memory is filling up (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # The node is under heavy memory pressure. High rate of major page faults
+  - alert: HostMemoryUnderMemoryPressure
+    expr: rate(node_vmstat_pgmajfault[1m]) > 1000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host memory under memory pressure (instance {{ $labels.instance }})"
+      description: "The node is under heavy memory pressure. High rate of major page faults\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Host network interfaces are probably receiving too much data (> 100 MB/s)
+  - alert: HostUnusualNetworkThroughputIn
+    expr: sum by (instance) (irate(node_network_receive_bytes_total[2m])) / 1024 / 1024 > 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host unusual network throughput in (instance {{ $labels.instance }})"
+      description: "Host network interfaces are probably receiving too much data (> 100 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Host network interfaces are probably sending too much data (> 100 MB/s)
+  - alert: HostUnusualNetworkThroughputOut
+    expr: sum by (instance) (irate(node_network_transmit_bytes_total[2m])) / 1024 / 1024 > 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host unusual network throughput out (instance {{ $labels.instance }})"
+      description: "Host network interfaces are probably sending too much data (> 100 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Disk is probably reading too much data (> 50 MB/s)
+  - alert: HostUnusualDiskReadRate
+    expr: sum by (instance) (irate(node_disk_read_bytes_total[2m])) / 1024 / 1024 > 50
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host unusual disk read rate (instance {{ $labels.instance }})"
+      description: "Disk is probably reading too much data (> 50 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Disk is probably writing too much data (> 50 MB/s)
+  - alert: HostUnusualDiskWriteRate
+    expr: sum by (instance) (irate(node_disk_written_bytes_total[2m])) / 1024 / 1024 > 50
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host unusual disk write rate (instance {{ $labels.instance }})"
+      description: "Disk is probably writing too much data (> 50 MB/s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Disk is almost full (< 10% left)
+  - alert: HostOutOfDiskSpace
+    expr: (node_filesystem_avail_bytes{mountpoint="/rootfs"}  * 100) / node_filesystem_size_bytes{mountpoint="/rootfs"} < 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host out of disk space (instance {{ $labels.instance }})"
+      description: "Disk is almost full (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Disk will fill in 4 hours at current write rate
+  - alert: HostDiskWillFillIn4Hours
+    expr: predict_linear(node_filesystem_free_bytes{fstype!~"tmpfs"}[1h], 4 * 3600) < 0
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host disk will fill in 4 hours (instance {{ $labels.instance }})"
+      description: "Disk will fill in 4 hours at current write rate\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Disk is almost running out of available inodes (< 10% left)
+  - alert: HostOutOfInodes
+    expr: node_filesystem_files_free{mountpoint ="/rootfs"} / node_filesystem_files{mountpoint ="/rootfs"} * 100 < 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host out of inodes (instance {{ $labels.instance }})"
+      description: "Disk is almost running out of available inodes (< 10% left)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Disk latency is growing (read operations > 100ms)
+  - alert: HostUnusualDiskReadLatency
+    expr: rate(node_disk_read_time_seconds_total[1m]) / rate(node_disk_reads_completed_total[1m]) > 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host unusual disk read latency (instance {{ $labels.instance }})"
+      description: "Disk latency is growing (read operations > 100ms)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Disk latency is growing (write operations > 100ms)
+  - alert: HostUnusualDiskWriteLatency
+    expr: rate(node_disk_write_time_seconds_total[1m]) / rate(node_disk_writes_completed_total[1m]) > 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host unusual disk write latency (instance {{ $labels.instance }})"
+      description: "Disk latency is growing (write operations > 100ms)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # CPU load is > 80%
+  - alert: HostHighCpuLoad
+    expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host high CPU load (instance {{ $labels.instance }})"
+      description: "CPU load is > 80%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Context switching is growing on node (> 1000 / s)
+  # 1000 context switches is an arbitrary number.
+  # Alert threshold depends on nature of application.
+  # Please read: https://github.com/samber/awesome-prometheus-alerts/issues/58
+  - alert: HostContextSwitching
+    expr: rate(node_context_switches_total[5m]) > 1000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host context switching (instance {{ $labels.instance }})"
+      description: "Context switching is growing on node (> 1000 / s)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Swap is filling up (>80%)
+  - alert: HostSwapIsFillingUp
+    expr: (1 - (node_memory_SwapFree_bytes / node_memory_SwapTotal_bytes)) * 100 > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host swap is filling up (instance {{ $labels.instance }})"
+      description: "Swap is filling up (>80%)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # SystemD service crashed
+  - alert: HostSystemdServiceCrashed
+    expr: node_systemd_unit_state{state="failed"} == 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host SystemD service crashed (instance {{ $labels.instance }})"
+      description: "SystemD service crashed\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Physical hardware component too hot
+  - alert: HostPhysicalComponentTooHot
+    expr: node_hwmon_temp_celsius > 75
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host physical component too hot (instance {{ $labels.instance }})"
+      description: "Physical hardware component too hot\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Physical node temperature alarm triggered
+  - alert: HostNodeOvertemperatureAlarm
+    expr: node_hwmon_temp_alarm == 1
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Host node overtemperature alarm (instance {{ $labels.instance }})"
+      description: "Physical node temperature alarm triggered\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # RAID array {{ $labels.device }} is in degraded state due to one or more disks failures. Number of spare drives is insufficient to fix issue automatically.
+  - alert: HostRaidArrayGotInactive
+    expr: node_md_state{state="inactive"} > 0
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Host RAID array got inactive (instance {{ $labels.instance }})"
+      description: "RAID array {{ $labels.device }} is in degraded state due to one or more disks failures. Number of spare drives is insufficient to fix issue automatically.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # At least one device in RAID array on {{ $labels.instance }} failed. Array {{ $labels.md_device }} needs attention and possibly a disk swap
+  - alert: HostRaidDiskFailure
+    expr: node_md_disks{state="fail"} > 0
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host RAID disk failure (instance {{ $labels.instance }})"
+      description: "At least one device in RAID array on {{ $labels.instance }} failed. Array {{ $labels.md_device }} needs attention and possibly a disk swap\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Different kernel versions are running
+  - alert: HostKernelVersionDeviations
+    expr: count(sum(label_replace(node_uname_info, "kernel", "$1", "release", "([0-9]+.[0-9]+.[0-9]+).*")) by (kernel)) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host kernel version deviations (instance {{ $labels.instance }})"
+      description: "Different kernel versions are running\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # OOM kill detected
+  - alert: HostOomKillDetected
+    expr: increase(node_vmstat_oom_kill[30m]) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Host OOM kill detected (instance {{ $labels.instance }})"
+      description: "OOM kill detected\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+
+
+
+############################################################################
+
+- name: Redis
+  rules:
+
+  # Redis instance is down
+  - alert: RedisDown
+    expr: redis_up == 0
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Redis down (instance {{ $labels.instance }})"
+      description: "Redis instance is down\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Redis cluster has no node marked as master.
+  - alert: RedisMissingMaster
+    expr: count(redis_instance_info{role="master"}) == 0
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Redis missing master (instance {{ $labels.instance }})"
+      description: "Redis cluster has no node marked as master.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Redis cluster has too many nodes marked as master.
+  - alert: RedisTooManyMasters
+    expr: count(redis_instance_info{role="master"}) > 1
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Redis too many masters (instance {{ $labels.instance }})"
+      description: "Redis cluster has too many nodes marked as master.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Redis not replicating for all slaves. Consider reviewing the redis replication status.
+  - alert: RedisDisconnectedSlaves
+    expr: count without (instance, job) (redis_connected_slaves) - sum without (instance, job) (redis_connected_slaves) - 1 > 1
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Redis disconnected slaves (instance {{ $labels.instance }})"
+      description: "Redis not replicating for all slaves. Consider reviewing the redis replication status.\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Redis instance lost a slave
+  - alert: RedisReplicationBroken
+    expr: delta(redis_connected_slaves[1m]) < 0
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Redis replication broken (instance {{ $labels.instance }})"
+      description: "Redis instance lost a slave\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Changes have been detected in Redis replica connection. This can occur when replica nodes lose connection to the master and reconnect (a.k.a flapping).
+  - alert: RedisClusterFlapping
+    expr: changes(redis_connected_slaves[5m]) > 2
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Redis cluster flapping (instance {{ $labels.instance }})"
+      description: "Changes have been detected in Redis replica connection. This can occur when replica nodes lose connection to the master and reconnect (a.k.a flapping).\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Redis has not been backuped for 24 hours
+  - alert: RedisMissingBackup
+    expr: time() - redis_rdb_last_save_timestamp_seconds > 60 * 60 * 24
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Redis missing backup (instance {{ $labels.instance }})"
+      description: "Redis has not been backuped for 24 hours\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Redis is running out of memory (> 90%)
+  - alert: RedisOutOfMemory
+    expr: redis_memory_used_bytes / redis_total_system_memory_bytes * 100 > 90
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis out of memory (instance {{ $labels.instance }})"
+      description: "Redis is running out of memory (> 90%)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Redis instance has too many connections
+  - alert: RedisTooManyConnections
+    expr: redis_connected_clients > 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis too many connections (instance {{ $labels.instance }})"
+      description: "Redis instance has too many connections\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Redis instance should have more connections (> 5)
+  - alert: RedisNotEnoughConnections
+    expr: redis_connected_clients < 5
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Redis not enough connections (instance {{ $labels.instance }})"
+      description: "Redis instance should have more connections (> 5)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Some connections to Redis has been rejected
+  - alert: RedisRejectedConnections
+    expr: increase(redis_rejected_connections_total[1m]) > 0
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "Redis rejected connections (instance {{ $labels.instance }})"
+      description: "Some connections to Redis has been rejected\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+
+######################################################################################
+- name: MongoDB
+  rules:
+
+  # Mongodb replication lag is more than 10s
+  - alert: MongodbReplicationLag
+    expr: avg(mongodb_replset_member_optime_date{state="PRIMARY"}) - avg(mongodb_replset_member_optime_date{state="SECONDARY"}) > 10
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "MongoDB replication lag (instance {{ $labels.instance }})"
+      description: "Mongodb replication lag is more than 10s\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # MongoDB replication headroom is <= 0
+  - alert: MongodbReplicationHeadroom
+    expr: (avg(mongodb_replset_oplog_tail_timestamp - mongodb_replset_oplog_head_timestamp) - (avg(mongodb_replset_member_optime_date{state="PRIMARY"}) - avg(mongodb_replset_member_optime_date{state="SECONDARY"}))) <= 0
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "MongoDB replication headroom (instance {{ $labels.instance }})"
+      description: "MongoDB replication headroom is <= 0\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # MongoDB Replication set member either perform startup self-checks, or transition from completing a rollback or resync
+  - alert: MongodbReplicationStatus3
+    expr: mongodb_replset_member_state == 3
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "MongoDB replication Status 3 (instance {{ $labels.instance }})"
+      description: "MongoDB Replication set member either perform startup self-checks, or transition from completing a rollback or resync\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # MongoDB Replication set member as seen from another member of the set, is not yet known
+  - alert: MongodbReplicationStatus6
+    expr: mongodb_replset_member_state == 6
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "MongoDB replication Status 6 (instance {{ $labels.instance }})"
+      description: "MongoDB Replication set member as seen from another member of the set, is not yet known\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # MongoDB Replication set member as seen from another member of the set, is unreachable
+  - alert: MongodbReplicationStatus8
+    expr: mongodb_replset_member_state == 8
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "MongoDB replication Status 8 (instance {{ $labels.instance }})"
+      description: "MongoDB Replication set member as seen from another member of the set, is unreachable\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # MongoDB Replication set member is actively performing a rollback. Data is not available for reads
+  - alert: MongodbReplicationStatus9
+    expr: mongodb_replset_member_state == 9
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "MongoDB replication Status 9 (instance {{ $labels.instance }})"
+      description: "MongoDB Replication set member is actively performing a rollback. Data is not available for reads\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # MongoDB Replication set member was once in a replica set but was subsequently removed
+  - alert: MongodbReplicationStatus10
+    expr: mongodb_replset_member_state == 10
+    for: 5m
+    labels:
+      severity: error
+    annotations:
+      summary: "MongoDB replication Status 10 (instance {{ $labels.instance }})"
+      description: "MongoDB Replication set member was once in a replica set but was subsequently removed\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Too many cursors opened by MongoDB for clients (> 10k)
+  - alert: MongodbNumberCursorsOpen
+    expr: mongodb_metrics_cursor_open{state="total_open"} > 10000
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "MongoDB number cursors open (instance {{ $labels.instance }})"
+      description: "Too many cursors opened by MongoDB for clients (> 10k)\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Too many cursors are timing out
+  - alert: MongodbCursorsTimeouts
+    expr: increase(mongodb_metrics_cursor_timed_out_total[10m]) > 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "MongoDB cursors timeouts (instance {{ $labels.instance }})"
+      description: "Too many cursors are timing out\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Too many connections
+  - alert: MongodbTooManyConnections
+    expr: mongodb_connections{state="current"} > 500
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "MongoDB too many connections (instance {{ $labels.instance }})"
+      description: "Too many connections\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # High memory usage
+  - alert: MongodbVirtualMemoryUsage
+    expr: (sum(mongodb_memory{type="virtual"}) BY (ip) / sum(mongodb_memory{type="mapped"}) BY (ip)) > 3
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "MongoDB virtual memory usage (instance {{ $labels.instance }})"
+      description: "High memory usage\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+###################################################################################
+
+- name: Docker containers
+  rules:
+
+  # A container has disappeared
+  - alert: ContainerKilled
+    expr: time() - container_last_seen > 60
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Container killed (instance {{ $labels.instance }})"
+      description: "A container has disappeared\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Container CPU usage is above 80%
+  - alert: ContainerCpuUsage
+    expr: (sum(rate(container_cpu_usage_seconds_total[3m])) BY (instance, name) * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Container CPU usage (instance {{ $labels.instance }})"
+      description: "Container CPU usage is above 80%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Container Memory usage is above 80%
+  - alert: ContainerMemoryUsage
+    expr: (sum(container_memory_usage_bytes) BY (instance, name) / sum(container_spec_memory_limit_bytes) BY (instance, name) * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Container Memory usage (instance {{ $labels.instance }})"
+      description: "Container Memory usage is above 80%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Container Volume usage is above 80%
+  - alert: ContainerVolumeUsage
+    expr: (1 - (sum(container_fs_inodes_free) BY (instance) / sum(container_fs_inodes_total) BY (instance)) * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Container Volume usage (instance {{ $labels.instance }})"
+      description: "Container Volume usage is above 80%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Container Volume IO usage is above 80%
+  - alert: ContainerVolumeIoUsage
+    expr: (sum(container_fs_io_current) BY (instance, name) * 100) > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Container Volume IO usage (instance {{ $labels.instance }})"
+      description: "Container Volume IO usage is above 80%\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+
+  # Container is being throttled
+  - alert: ContainerHighThrottleRate
+    expr: rate(container_cpu_cfs_throttled_seconds_total[3m]) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Container high throttle rate (instance {{ $labels.instance }})"
+      description: "Container is being throttled\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
+

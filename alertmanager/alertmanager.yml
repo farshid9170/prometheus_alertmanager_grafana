@@ -1,0 +1,36 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['instance']
+  group_wait: 1m
+  group_interval: 5m
+  repeat_interval: 6h
+  receiver: 'gmail-notifications'
+  routes:
+  - match:
+      severity: critical
+    receiver: 'webhook'
+    continue: true
+
+
+
+
+receivers:
+- name: 'gmail-notifications'
+  email_configs:
+  - to: "alertmanager@gmail.com"
+    from: "alertmanager@gmail.com"
+    smarthost: smtp.gmail.com:587
+    auth_username: "alertmanager@gmail.com"
+    auth_identity: "alertmanager@gmail.com"
+    auth_password: "qljabldfsemqxbru"
+    send_resolved: true
+
+
+
+- name: webhook
+  webhook_configs:
+  - url: 'http://172.16.4.201:5000/webhook'
+  
+ # send_resolved: true
